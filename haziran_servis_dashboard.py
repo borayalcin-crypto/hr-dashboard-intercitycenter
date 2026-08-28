@@ -6,10 +6,15 @@ import plotly.graph_objects as go
 
 st.set_page_config(layout="wide", page_title="Haziran Servis Dashboard")
 
-# Veri yolu (sizin Excel dosyanızı buraya koyun)
-DATA_PATH = "data/son_veri.xlsx"  # veya doğrudan dosya adı
+# ----- DOSYA YOLU VE ŞİFRE AYARLARI -----
+DATA_DIR = "data"
+DATA_PATH = os.path.join(DATA_DIR, "son_veri.xlsx")
+os.makedirs(DATA_DIR, exist_ok=True)  # Klasör yoksa otomatik oluştur
 
-# Format yardımcıları (mevcut kod ile aynı)
+# Şifre (basit tutuyoruz, isterseniz değiştirin)
+UPLOAD_PASSWORD = "ik2026"
+
+# ----- FORMAT YARDIMCILARI (eski kodla aynı) -----
 def format_tl(value):
     if value is None:
         return "0TL"
@@ -49,7 +54,6 @@ def format_number(value, decimals=1):
     except:
         return str(value)
 
-# Delta hesaplama
 def calc_diff(current, previous):
     if previous is None:
         return None
@@ -73,7 +77,7 @@ def format_delta_number(diff, decimals=0):
     sign = "+" if diff >= 0 else "-"
     return f"{sign}{format_number(abs(diff), decimals)}"
 
-# Şirket ismini normalize et (sadece Haziran Servis'i bulmak için)
+# ----- NORMALİZASYON -----
 def normalize_company_name(name):
     if not isinstance(name, str):
         return name
@@ -84,12 +88,10 @@ def normalize_company_name(name):
     }
     return replacements.get(name, name)
 
-# Sütunları temizle
 def clean_columns(df):
     df.columns = [str(col).strip() for col in df.columns]
     return df
 
-# Ay sütunlarını bul
 MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz']
 
 def get_month_cols(df):
@@ -102,11 +104,11 @@ def get_month_cols(df):
                 break
     return month_cols
 
-# Ana veri yükleme fonksiyonu (sadece Haziran Servis)
+# ----- VERİ YÜKLEME (SADECE HAZİRAN SERVİS) -----
 @st.cache_data
 def load_haziran_data():
     if not os.path.exists(DATA_PATH):
-        st.error(f"Excel dosyası bulunamadı: {DATA_PATH}")
+        st.error("Veri dosyası bulunamadı! Lütfen soldaki 'Veriyi Güncelle' panelinden Excel dosyasını yükleyin.")
         return None
 
     # 1. Genel Turnover
@@ -189,13 +191,12 @@ def load_haziran_data():
     month_cols = get_month_cols(df_izin_ucret)
     haziran_izin_ucret = df_izin_ucret.loc['Haziran Servis', month_cols] if 'Haziran Servis' in df_izin_ucret.index else pd.Series(0, index=month_cols)
 
-    # 11. Kıdem Tazminatı (şirket x ay, toplam satırı yok say)
+    # 11. Kıdem Tazminatı
     df_kidem = pd.read_excel(DATA_PATH, sheet_name='kidem.tazminati', header=0)
     df_kidem = clean_columns(df_kidem)
     df_kidem['Şirket'] = df_kidem.iloc[:, 0].apply(normalize_company_name)
     df_kidem = df_kidem.set_index('Şirket')
     month_cols = get_month_cols(df_kidem)
-    # Toplam satırını ayıkla (eğer varsa)
     is_total = df_kidem.index.astype(str).str.strip().str.upper() == 'TOPLAM'
     df_kidem = df_kidem[~is_total]
     haziran_kidem = df_kidem.loc['Haziran Servis', month_cols] if 'Haziran Servis' in df_kidem.index else pd.Series(0, index=month_cols)
@@ -210,29 +211,25 @@ def load_haziran_data():
     df_ihbar = df_ihbar[~is_total]
     haziran_ihbar = df_ihbar.loc['Haziran Servis', month_cols] if 'Haziran Servis' in df_ihbar.index else pd.Series(0, index=month_cols)
 
-    # 13. Kişi Başı Ortalama Maaş (şirket satırı)
+    # 13. Kişi Başı Ortalama Maaş
     df_kisi = pd.read_excel(DATA_PATH, sheet_name='kisi.basi.ort', header=0)
     df_kisi = clean_columns(df_kisi)
     df_kisi['Şirket'] = df_kisi.iloc[:, 0].apply(normalize_company_name)
     df_kisi = df_kisi.set_index('Şirket')
     month_cols = get_month_cols(df_kisi)
-    # Genel satırı ayıkla
     is_genel = df_kisi.index.astype(str).str.strip().str.upper().str.contains('GENEL')
     df_kisi = df_kisi[~is_genel]
     haziran_kisi = df_kisi.loc['Haziran Servis', month_cols] if 'Haziran Servis' in df_kisi.index else pd.Series(0, index=month_cols)
 
-    # 14. Aylık FM Yapan (tüm personel, sonradan filtrele)
+    # 14. Aylık FM Yapan (Haziran Servis filtresi)
     df_fm_yapan = pd.read_excel(DATA_PATH, sheet_name='aylik.fm.yapan', header=0)
     df_fm_yapan = clean_columns(df_fm_yapan)
     if 'Şirket' in df_fm_yapan.columns:
         df_fm_yapan['Şirket'] = df_fm_yapan['Şirket'].apply(normalize_company_name)
-    # Sadece Haziran Servis çalışanlarını filtrele
     df_fm_yapan = df_fm_yapan[df_fm_yapan['Şirket'] == 'Haziran Servis']
-    # Ay sütunlarını sayısal yap
     for m in get_month_cols(df_fm_yapan):
         df_fm_yapan[m] = pd.to_numeric(df_fm_yapan[m], errors='coerce').fillna(0)
 
-    # Tüm serileri bir sözlükte topla
     return {
         'gt': haziran_gt,
         'gon': haziran_gon,
@@ -250,9 +247,31 @@ def load_haziran_data():
         'fm_yapan': df_fm_yapan
     }
 
-# Ana uygulama
+# ----- ANA UYGULAMA -----
 def main():
     st.title("📊 Haziran Servis Özel Dashboard")
+
+    # ----- VERİ GÜNCELLEME PANELİ (SIDEBAR) -----
+    with st.sidebar:
+        with st.expander("🔒 Veriyi Güncelle", expanded=not os.path.exists(DATA_PATH)):
+            pwd = st.text_input("Şifre", type="password")
+            new_file = st.file_uploader("Yeni Excel dosyası", type=["xlsx"], key="haziran_uploader")
+            if new_file is not None:
+                if pwd == UPLOAD_PASSWORD:
+                    with open(DATA_PATH, "wb") as f:
+                        f.write(new_file.getbuffer())
+                    st.cache_data.clear()
+                    st.success("✅ Veri başarıyla güncellendi!")
+                    st.rerun()
+                else:
+                    st.error("❌ Şifre yanlış!")
+
+    st.markdown("---")
+
+    # Veri kontrolü
+    if not os.path.exists(DATA_PATH):
+        st.info("📂 Henüz veri yüklenmedi. Soldaki '🔒 Veriyi Güncelle' panelinden Excel dosyasını yükleyin.")
+        st.stop()
 
     # Veriyi yükle
     data = load_haziran_data()
@@ -264,7 +283,6 @@ def main():
     month_idx = MONTHS.index(selected_month)
     prev_month = MONTHS[month_idx - 1] if month_idx > 0 else None
 
-    # O ayki değerleri al
     def get_val(series, month):
         return series.get(month, 0) if month in series.index else 0
 
@@ -272,7 +290,7 @@ def main():
     prev_gt = get_val(data['gt'], prev_month) if prev_month else None
 
     cur_gon = get_val(data['gon'], selected_month)
-    cur_rapor = get_val(data['rapor'], selected_month) * 100  # yüzde
+    cur_rapor = get_val(data['rapor'], selected_month) * 100
     prev_rapor = get_val(data['rapor'], prev_month) * 100 if prev_month else None
 
     cur_calisan = get_val(data['calisan'], selected_month)
@@ -305,7 +323,7 @@ def main():
     cur_kisi = get_val(data['kisi_basi'], selected_month)
     prev_kisi = get_val(data['kisi_basi'], prev_month) if prev_month else None
 
-    # KPI kartları (2 satır)
+    # KPI Kartları
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric("👥 Çalışan", format_number(cur_calisan, 0),
                 delta=format_delta_number(calc_diff(cur_calisan, prev_calisan), 0))
@@ -334,14 +352,12 @@ def main():
 
     st.markdown("---")
 
-    # ----- En Çok Mesai Yapan 10 Kişi -----
+    # ----- EN ÇOK MESAİ YAPAN 10 KİŞİ -----
     st.subheader(f"🏆 {selected_month} Ayında En Çok Mesai Yapan 10 Kişi (Haziran Servis)")
 
     fm_df = data['fm_yapan']
     if selected_month in fm_df.columns and not fm_df.empty:
-        # Gerekli sütunlar
         cols = ['Adı Soyadı', 'Lokasyon', 'Organizasyon', 'Departman', selected_month]
-        # Eksik sütunları kontrol et
         available = [c for c in cols if c in fm_df.columns]
         if len(available) < 5:
             st.warning("Bazı sütunlar eksik, mevcut sütunlar gösteriliyor.")
@@ -357,13 +373,13 @@ def main():
 
     st.markdown("---")
 
-    # ----- Detay Tablosu (Tek şirket olduğu için tek satır) -----
+    # ----- DETAY TABLOSU -----
     st.subheader(f"📋 {selected_month} - Haziran Servis Detayları")
     detail = {
         'Şirket': 'Haziran Servis',
         'Çalışan': format_number(cur_calisan, 0),
         'Raporlu Oran %': format_percent(cur_rapor),
-        'Turnover Toplam %': format_percent(cur_gt * 100),  # gt zaten oran, yüzdeye çevir
+        'Turnover Toplam %': format_percent(cur_gt * 100),
         'Turnover Gönüllü %': format_percent(cur_gon * 100),
         'Net Kök Ücret': format_tl(cur_net),
         'İşveren Maliyeti': format_tl(cur_isveren),
