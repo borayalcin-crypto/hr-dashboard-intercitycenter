@@ -295,6 +295,22 @@ def load_data(_uploaded_file, cache_key=None):
     for m in get_month_cols(df_fm_yapan):
         df_fm_yapan[m] = pd.to_numeric(df_fm_yapan[m], errors='coerce').fillna(0)
 
+    # ----- 21. LOKASYON BAZINDA ÇALIŞAN SAYISI -----
+    df_lokasyon_cal = pd.read_excel(uploaded_file, sheet_name='lokasyon.bazinda.cal', header=0)
+    df_lokasyon_cal = clean_columns(df_lokasyon_cal)
+    first_col = df_lokasyon_cal.columns[0]
+    df_lokasyon_cal = df_lokasyon_cal.set_index(first_col)
+    month_cols = get_month_cols(df_lokasyon_cal)
+    df_lokasyon_cal = clean_numeric_df(df_lokasyon_cal[month_cols])
+
+    # ----- 22. LOKASYON BAZINDA KÖK ÜCRET -----
+    df_lokasyon_ucret = pd.read_excel(uploaded_file, sheet_name='lokasyon.baz.kok.ucret', header=0)
+    df_lokasyon_ucret = clean_columns(df_lokasyon_ucret)
+    first_col = df_lokasyon_ucret.columns[0]
+    df_lokasyon_ucret = df_lokasyon_ucret.set_index(first_col)
+    month_cols = get_month_cols(df_lokasyon_ucret)
+    df_lokasyon_ucret = clean_numeric_df(df_lokasyon_ucret[month_cols])
+
     # ----- VERİYİ BİRLEŞTİR -----
     data = {}
     for idx, m in enumerate(MONTHS):
@@ -404,6 +420,8 @@ def load_data(_uploaded_file, cache_key=None):
         'by_month': data,
         'fm_yapan': df_fm_yapan,
         'turnoverSirketBazli': turnover_sirket_bazli,
+        'lokasyon_cal': df_lokasyon_cal,
+        'lokasyon_ucret': df_lokasyon_ucret,
     }
 
 
@@ -448,6 +466,8 @@ def main():
 
     data = all_data['by_month']
     fm_yapan_df = all_data['fm_yapan']
+    lokasyon_cal = all_data['lokasyon_cal']
+    lokasyon_ucret = all_data['lokasyon_ucret']
     COMPANY = 'Haziran Servis'
 
     selected_month = st.selectbox("📅 Ay Seçin", MONTHS, index=len(MONTHS) - 1)
@@ -465,35 +485,33 @@ def main():
             return None
         return calc_diff(hz.get(key, 0), hz_prev.get(key, 0))
 
-    # ----- KPI KARTLARI (1. satır) -----
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    # ----- KPI KARTLARI (3 SATIR) -----
+    # 1. satır: 7 kart
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     col1.metric("👥 Çalışan Sayısı", format_number(d('employees'), 0), delta=format_delta_number(diff_of('employees'), 0))
-    col2.metric("📊 Raporlu Oran", format_percent(d('devamsizlik')), delta=format_delta_percent(diff_of('devamsizlik')))
-    col3.metric("💼 İşveren Maliyeti", format_tl(d('isverenMaliyet')), delta=format_delta_tl(diff_of('isverenMaliyet')))
-    col4.metric("💰 Net Kök Ücret", format_tl(d('netKokUcret')), delta=format_delta_tl(diff_of('netKokUcret')))
-    col5.metric("⏱️ FM Saat", format_number(d('fmSaat'), 1), delta=format_delta_number(diff_of('fmSaat'), 1))
-    col6.metric("💸 FM (Net TL)", format_tl(d('fmTlMaliyet')), delta=format_delta_tl(diff_of('fmTlMaliyet')))
+    col2.metric("👩 Kadın Oranı", format_percent(d('kadinOrani')), delta=format_delta_percent(diff_of('kadinOrani')))
+    col3.metric("📊 Raporlu Oran", format_percent(d('devamsizlik')), delta=format_delta_percent(diff_of('devamsizlik')))
+    col4.metric("💼 İşveren Maliyeti", format_tl(d('isverenMaliyet')), delta=format_delta_tl(diff_of('isverenMaliyet')))
+    col5.metric("💰 Net Kök Ücret", format_tl(d('netKokUcret')), delta=format_delta_tl(diff_of('netKokUcret')))
+    col6.metric("⏱️ FM Saat", format_number(d('fmSaat'), 1), delta=format_delta_number(diff_of('fmSaat'), 1))
+    col7.metric("💸 FM (Net TL)", format_tl(d('fmTlMaliyet')), delta=format_delta_tl(diff_of('fmTlMaliyet')))
 
-    # ----- KPI KARTLARI (2. satır) -----
-    col7, col8, col9, col10, col11 = st.columns(5)
-    col7.metric("📅 İzin Gün Bakiyesi", format_number(d('izinGun'), 1), delta=format_delta_number(diff_of('izinGun'), 1))
-    col8.metric("💎 İzin Ücreti (Net TL)", format_tl(d('izinUcret')), delta=format_delta_tl(diff_of('izinUcret')))
-    col9.metric("🏷️ Kıdem Tazminatı (Net TL)", format_tl(d('kidemTazminati')), delta=format_delta_tl(diff_of('kidemTazminati')))
-    col10.metric("📨 İhbar Tazminatı (Net TL)", format_tl(d('ihbarTazminati')), delta=format_delta_tl(diff_of('ihbarTazminati')))
-    col11.metric("🧮 Kişi Başı Ort. Maaş (Net TL)", format_tl(d('kisiBasiOrt')), delta=format_delta_tl(diff_of('kisiBasiOrt')))
+    # 2. satır: 6 kart
+    col8, col9, col10, col11, col12, col13 = st.columns(6)
+    col8.metric("📅 İzin Gün Bakiyesi", format_number(d('izinGun'), 1), delta=format_delta_number(diff_of('izinGun'), 1))
+    col9.metric("💎 İzin Ücreti (Net TL)", format_tl(d('izinUcret')), delta=format_delta_tl(diff_of('izinUcret')))
+    col10.metric("🏷️ Kıdem Tazminatı (Net TL)", format_tl(d('kidemTazminati')), delta=format_delta_tl(diff_of('kidemTazminati')))
+    col11.metric("📨 İhbar Tazminatı (Net TL)", format_tl(d('ihbarTazminati')), delta=format_delta_tl(diff_of('ihbarTazminati')))
+    col12.metric("🧮 Kişi Başı Ort. Maaş (Net TL)", format_tl(d('kisiBasiOrt')), delta=format_delta_tl(diff_of('kisiBasiOrt')))
+    col13.metric("🔄 Küm. Genel Turnover", format_percent(d('turnoverKumulatif')), delta=format_delta_percent(diff_of('turnoverKumulatif')))
 
-    # ----- KPI KARTLARI (3. satır) -----
-    col12, col13, col14, col15, col16, col17 = st.columns(6)
-    col12.metric("🔄 Küm. Genel Turnover", format_percent(d('turnoverKumulatif')), delta=format_delta_percent(diff_of('turnoverKumulatif')))
-    col13.metric("🚪 Küm. Gönüllü Turnover", format_percent(d('turnoverGonulluKumulatif')), delta=format_delta_percent(diff_of('turnoverGonulluKumulatif')))
-    col14.metric("📈 Aylık Genel Turnover", format_percent(d('turnoverAylik')), delta=format_delta_percent(diff_of('turnoverAylik')))
-    col15.metric("📉 Aylık Gönüllü Turnover", format_percent(d('turnoverGonulluAylik')), delta=format_delta_percent(diff_of('turnoverGonulluAylik')))
-    col16.metric("⬆️ Ay İçi İşe Giren", format_number(d('aySekiceGiris'), 0), delta=format_delta_number(diff_of('aySekiceGiris'), 0))
-    col17.metric("⬇️ Ay İçi İşten Ayrılan", format_number(d('aySekiceCikis'), 0), delta=format_delta_number(diff_of('aySekiceCikis'), 0))
-
-    # ----- KPI KARTLARI (4. satır) -----
-    col18, col19 = st.columns(2)
-    col18.metric("👩 Kadın Oranı", format_percent(d('kadinOrani')), delta=format_delta_percent(diff_of('kadinOrani')))
+    # 3. satır: 6 kart
+    col14, col15, col16, col17, col18, col19 = st.columns(6)
+    col14.metric("🚪 Küm. Gönüllü Turnover", format_percent(d('turnoverGonulluKumulatif')), delta=format_delta_percent(diff_of('turnoverGonulluKumulatif')))
+    col15.metric("📈 Aylık Genel Turnover", format_percent(d('turnoverAylik')), delta=format_delta_percent(diff_of('turnoverAylik')))
+    col16.metric("📉 Aylık Gönüllü Turnover", format_percent(d('turnoverGonulluAylik')), delta=format_delta_percent(diff_of('turnoverGonulluAylik')))
+    col17.metric("⬆️ Ay İçi İşe Giren", format_number(d('aySekiceGiris'), 0), delta=format_delta_number(diff_of('aySekiceGiris'), 0))
+    col18.metric("⬇️ Ay İçi İşten Ayrılan", format_number(d('aySekiceCikis'), 0), delta=format_delta_number(diff_of('aySekiceCikis'), 0))
     col19.metric("⏳ İlk 6 Ay Ayrılma Oranı", format_percent(d('ilk6ayOrani')), delta=format_delta_percent(diff_of('ilk6ayOrani')))
 
     st.markdown("---")
@@ -636,6 +654,29 @@ def main():
         st.dataframe(top10, use_container_width=True, hide_index=True)
     else:
         st.info("Bu ay için mesai verisi bulunamadı.")
+
+    st.markdown("---")
+
+    # ----- LOKASYON BAZINDA TABLOLAR -----
+    st.subheader(f"📍 {selected_month} Ayı - Lokasyon Bazında Çalışan Sayısı ve Net Kök Ücret")
+
+    # Seçilen aya göre verileri al
+    if selected_month in lokasyon_cal.columns and selected_month in lokasyon_ucret.columns:
+        df_lok = pd.DataFrame({
+            'Lokasyon': lokasyon_cal.index,
+            'Çalışan Sayısı': lokasyon_cal[selected_month],
+            'Net Kök Ücret': lokasyon_ucret[selected_month]
+        })
+        # Toplam satırı ekle
+        toplam_calisan = df_lok['Çalışan Sayısı'].sum()
+        toplam_ucret = df_lok['Net Kök Ücret'].sum()
+        df_lok.loc['Toplam'] = ['Toplam', toplam_calisan, toplam_ucret]
+        # Formatla
+        df_lok['Çalışan Sayısı'] = df_lok['Çalışan Sayısı'].apply(lambda x: format_number(x, 0) if x != 'Toplam' else x)
+        df_lok['Net Kök Ücret'] = df_lok['Net Kök Ücret'].apply(lambda x: format_tl_no_decimal(x) if x != 'Toplam' else x)
+        st.dataframe(df_lok, use_container_width=True, hide_index=True)
+    else:
+        st.info("Seçilen ay için lokasyon verisi bulunamadı.")
 
     st.markdown("---")
 
