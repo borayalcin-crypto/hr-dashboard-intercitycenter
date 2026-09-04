@@ -657,24 +657,58 @@ def main():
 
     st.markdown("---")
 
-    # ----- LOKASYON BAZINDA TABLOLAR -----
+    # ----- LOKASYON BAZINDA TABLOLAR VE GRAFİKLER -----
     st.subheader(f"📍 {selected_month} Ayı - Lokasyon Bazında Çalışan Sayısı ve Net Kök Ücret")
 
-    # Seçilen aya göre verileri al
     if selected_month in lokasyon_cal.columns and selected_month in lokasyon_ucret.columns:
-        df_lok = pd.DataFrame({
+        # Grafik için veri (Toplam hariç)
+        df_lok_chart = pd.DataFrame({
             'Lokasyon': lokasyon_cal.index,
             'Çalışan Sayısı': lokasyon_cal[selected_month],
             'Net Kök Ücret': lokasyon_ucret[selected_month]
         })
-        # Toplam satırı ekle
-        toplam_calisan = df_lok['Çalışan Sayısı'].sum()
-        toplam_ucret = df_lok['Net Kök Ücret'].sum()
-        df_lok.loc['Toplam'] = ['Toplam', toplam_calisan, toplam_ucret]
-        # Formatla
-        df_lok['Çalışan Sayısı'] = df_lok['Çalışan Sayısı'].apply(lambda x: format_number(x, 0) if x != 'Toplam' else x)
-        df_lok['Net Kök Ücret'] = df_lok['Net Kök Ücret'].apply(lambda x: format_tl_no_decimal(x) if x != 'Toplam' else x)
-        st.dataframe(df_lok, use_container_width=True, hide_index=True)
+
+        # Tablo için veri (Toplam dahil)
+        df_lok_table = df_lok_chart.copy()
+        toplam_calisan = df_lok_table['Çalışan Sayısı'].sum()
+        toplam_ucret = df_lok_table['Net Kök Ücret'].sum()
+        df_lok_table.loc['Toplam'] = ['Toplam', toplam_calisan, toplam_ucret]
+
+        # Tablo formatlama
+        df_lok_table['Çalışan Sayısı'] = df_lok_table['Çalışan Sayısı'].apply(
+            lambda x: format_number(x, 0) if isinstance(x, (int, float)) else x
+        )
+        df_lok_table['Net Kök Ücret'] = df_lok_table['Net Kök Ücret'].apply(
+            lambda x: format_tl_no_decimal(x) if isinstance(x, (int, float)) else x
+        )
+
+        # Grafikler (2 sütun)
+        col_chart1, col_chart2 = st.columns(2)
+
+        # Çalışan Sayısı Grafiği
+        fig_calisan = px.bar(
+            df_lok_chart, x='Lokasyon', y='Çalışan Sayısı',
+            title=f"{selected_month} - Lokasyon Bazında Çalışan Sayısı",
+            text='Çalışan Sayısı', color='Lokasyon',
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        fig_calisan.update_traces(texttemplate='%{text:.0f}', textposition='outside')
+        fig_calisan.update_layout(showlegend=False, height=400, xaxis_title='', yaxis_title='Çalışan Sayısı')
+        col_chart1.plotly_chart(fig_calisan, use_container_width=True)
+
+        # Net Kök Ücret Grafiği
+        fig_ucret = px.bar(
+            df_lok_chart, x='Lokasyon', y='Net Kök Ücret',
+            title=f"{selected_month} - Lokasyon Bazında Net Kök Ücret",
+            text='Net Kök Ücret', color='Lokasyon',
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
+        fig_ucret.update_traces(texttemplate='%{text:,.0f} TL', textposition='outside')
+        fig_ucret.update_layout(showlegend=False, height=400, xaxis_title='', yaxis_title='Net Kök Ücret (TL)')
+        col_chart2.plotly_chart(fig_ucret, use_container_width=True)
+
+        # Tablo
+        st.dataframe(df_lok_table, use_container_width=True, hide_index=True)
     else:
         st.info("Seçilen ay için lokasyon verisi bulunamadı.")
 
