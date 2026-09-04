@@ -552,6 +552,77 @@ def main():
 
     st.markdown("---")
 
+    # ----- TÜM METRİKLER - AYLIK TREND (Ocak-Ağustos) -----
+    st.subheader("📊 Haziran Servis - Tüm Metrikler (Ocak–Ağustos Trendi)")
+
+    def series(key):
+        return [data[m]['companies'][COMPANY][key] for m in MONTHS]
+
+    def line_fig(title, series_dict, colors, fmt='num', decimals=1, yaxis_title=''):
+        fig = go.Figure()
+        for i, (name, vals) in enumerate(series_dict.items()):
+            if fmt == 'percent':
+                text = [format_percent(v) for v in vals]
+            elif fmt == 'tl':
+                text = [format_tl(v) for v in vals]
+            else:
+                text = [format_number(v, decimals) for v in vals]
+            fig.add_trace(go.Scatter(
+                x=MONTHS, y=vals, mode='lines+markers+text', name=name,
+                line=dict(color=colors[i], width=3), marker=dict(size=7),
+                text=text, textposition='top center' if i == 0 else 'bottom center',
+                hovertemplate='<b>%{x}</b><br>' + name + ': %{text}<extra></extra>'
+            ))
+        fig.update_layout(title=title, height=340, margin=dict(l=10, r=10, t=40, b=10),
+                           legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                           yaxis_title=yaxis_title)
+        return fig
+
+    def bar_fig(title, series_dict, colors, fmt='num', decimals=1, barmode='group'):
+        fig = go.Figure()
+        for i, (name, vals) in enumerate(series_dict.items()):
+            if fmt == 'percent':
+                text = [format_percent(v) for v in vals]
+            elif fmt == 'tl':
+                text = [format_tl(v) for v in vals]
+            else:
+                text = [format_number(v, decimals) for v in vals]
+            fig.add_trace(go.Bar(x=MONTHS, y=vals, name=name, marker_color=colors[i],
+                                  text=text, textposition='outside',
+                                  hovertemplate='<b>%{x}</b><br>' + name + ': %{text}<extra></extra>'))
+        fig.update_layout(title=title, height=340, margin=dict(l=10, r=10, t=40, b=10),
+                           legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                           barmode=barmode)
+        return fig
+
+    grid = [
+        line_fig("👥 Çalışan Sayısı", {'Çalışan Sayısı': series('employees')}, ['#3b82f6'], 'num', 0),
+        bar_fig("📊 Raporlu Oran", {'Raporlu Oran': series('devamsizlik')}, ['#6366f1'], 'percent'),
+        bar_fig("💰 Net Kök Ücret & İşveren Maliyeti",
+                {'Net Kök Ücret': series('netKokUcret'), 'İşveren Maliyeti': series('isverenMaliyet')},
+                ['#22c55e', '#fb923c'], 'tl'),
+        bar_fig("⏱️ FM Saat", {'FM Saat': series('fmSaat')}, ['#fb923c'], 'num', 0),
+        bar_fig("💸 FM (Net TL)", {'FM (Net TL)': series('fmTlMaliyet')}, ['#ef4444'], 'tl'),
+        bar_fig("📅 İzin Gün Bakiyesi", {'İzin Gün': series('izinGun')}, ['#14b8a6'], 'num', 1),
+        bar_fig("💎 İzin Ücreti (Net TL)", {'İzin Ücreti': series('izinUcret')}, ['#8b5cf6'], 'tl'),
+        bar_fig("🏷️ Kıdem & İhbar Tazminatı (Net TL)",
+                {'Kıdem Tazminatı': series('kidemTazminati'), 'İhbar Tazminatı': series('ihbarTazminati')},
+                ['#64748b', '#ef4444'], 'tl'),
+        line_fig("🧮 Kişi Başı Ortalama Maaş (Net TL)", {'Kişi Başı Ort. Maaş': series('kisiBasiOrt')}, ['#22c55e'], 'tl'),
+        line_fig("👩 Kadın Oranı", {'Kadın Oranı': series('kadinOrani')}, ['#ec4899'], 'percent'),
+        bar_fig("⏳ İlk 6 Ay İşten Ayrılma Oranı", {'İlk 6 Ay Ayrılma': series('ilk6ayOrani')}, ['#ef4444'], 'percent'),
+        bar_fig("🔁 Ay İçi İşe Giren & İşten Ayrılan",
+                {'Giriş': series('aySekiceGiris'), 'Çıkış': series('aySekiceCikis')}, ['#22c55e', '#ef4444'], 'num', 0),
+    ]
+
+    for i in range(0, len(grid), 2):
+        gcol1, gcol2 = st.columns(2)
+        gcol1.plotly_chart(grid[i], use_container_width=True)
+        if i + 1 < len(grid):
+            gcol2.plotly_chart(grid[i + 1], use_container_width=True)
+
+    st.markdown("---")
+
     # ----- EN ÇOK MESAİ YAPAN 10 KİŞİ -----
     st.subheader(f"🏆 {selected_month} Ayında En Çok Mesai Yapan 10 Kişi (Haziran Servis)")
     hz_fm_df = fm_yapan_df[fm_yapan_df['Şirket'] == COMPANY].copy() if 'Şirket' in fm_yapan_df.columns else fm_yapan_df.copy()
