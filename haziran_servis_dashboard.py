@@ -641,23 +641,7 @@ def main():
 
     st.markdown("---")
 
-    # ----- EN ÇOK MESAİ YAPAN 10 KİŞİ -----
-    st.subheader(f"🏆 {selected_month} Ayında En Çok Mesai Yapan 10 Kişi (Haziran Servis)")
-    hz_fm_df = fm_yapan_df[fm_yapan_df['Şirket'] == COMPANY].copy() if 'Şirket' in fm_yapan_df.columns else fm_yapan_df.copy()
-    if selected_month in hz_fm_df.columns and not hz_fm_df.empty:
-        cols_needed = [c for c in ['Adı Soyadı', 'Lokasyon', 'Organizasyon', 'Departman'] if c in hz_fm_df.columns]
-        top10 = hz_fm_df[cols_needed + [selected_month]].copy()
-        top10 = top10.sort_values(by=selected_month, ascending=False).head(10)
-        top10 = top10.rename(columns={selected_month: 'FM Saat'})
-        top10['FM Saat'] = top10['FM Saat'].apply(lambda x: format_number(x, 1))
-        top10.insert(0, 'Sıra', range(1, len(top10) + 1))
-        st.dataframe(top10, use_container_width=True, hide_index=True)
-    else:
-        st.info("Bu ay için mesai verisi bulunamadı.")
-
-    st.markdown("---")
-
-    # ----- LOKASYON BAZINDA TABLOLAR VE GRAFİKLER -----
+    # ----- LOKASYON BAZINDA TABLOLAR VE GRAFİKLER (EN ÇOK MESAİ TABLOSUNDAN ÖNCE) -----
     st.subheader(f"📍 {selected_month} Ayı - Lokasyon Bazında Çalışan Sayısı ve Net Kök Ücret")
 
     if selected_month in lokasyon_cal.columns and selected_month in lokasyon_ucret.columns:
@@ -711,6 +695,22 @@ def main():
         st.dataframe(df_lok_table, use_container_width=True, hide_index=True)
     else:
         st.info("Seçilen ay için lokasyon verisi bulunamadı.")
+
+    st.markdown("---")
+
+    # ----- EN ÇOK MESAİ YAPAN 10 KİŞİ -----
+    st.subheader(f"🏆 {selected_month} Ayında En Çok Mesai Yapan 10 Kişi (Haziran Servis)")
+    hz_fm_df = fm_yapan_df[fm_yapan_df['Şirket'] == COMPANY].copy() if 'Şirket' in fm_yapan_df.columns else fm_yapan_df.copy()
+    if selected_month in hz_fm_df.columns and not hz_fm_df.empty:
+        cols_needed = [c for c in ['Adı Soyadı', 'Lokasyon', 'Organizasyon', 'Departman'] if c in hz_fm_df.columns]
+        top10 = hz_fm_df[cols_needed + [selected_month]].copy()
+        top10 = top10.sort_values(by=selected_month, ascending=False).head(10)
+        top10 = top10.rename(columns={selected_month: 'FM Saat'})
+        top10['FM Saat'] = top10['FM Saat'].apply(lambda x: format_number(x, 1))
+        top10.insert(0, 'Sıra', range(1, len(top10) + 1))
+        st.dataframe(top10, use_container_width=True, hide_index=True)
+    else:
+        st.info("Bu ay için mesai verisi bulunamadı.")
 
     st.markdown("---")
 
